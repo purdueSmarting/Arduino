@@ -1,51 +1,57 @@
-/* Originally posted on www.bbangpan.com
-Program Description: 433/315Mhz transmitter(FS1000A or XY-FS) test code
-
-Needed library : VirtualWire http://www.airspayce.com/mikem/arduino/VirtualWire/index.html
-
-DataPin : 12 to 433/315Mhz transmitter DATA(near GND)
-
-Tested on : Arduino 1.0.6, Arduino UNO R3, VirtualWire
-
-Inspired by http://www.buildcircuit.com/how-to-use-rf-module-with-arduino/
-
-Copyright (c) 2015 www.bbangpan.com. All rights reserved.
-
-This program can be used for any non-commercial purpose freely. */
-
 #include <VirtualWire.h>
 #include "VirtualWire_Config.h"
 
 const int TX_DIO_Pin = 12; // default 12
-int index = 0;
+const int TX_UV_OUTPUT_Pin = 2; // UV sensor Trig pin
+const int TX_UV_INPUT_Pin = 3; // UV sensor Echo pin
 
 void setup(){
   Serial.begin(9600);
   Serial.println("Ready to transmit messages!");
+
+  // UV Sensor
+  pinMode(TX_UV_OUTPUT_Pin, OUTPUT);
+  pinMode(TX_UV_INPUT_Pin, INPUT); 
+  
   vw_set_tx_pin(TX_DIO_Pin); // Initialize TX pin
   vw_setup(2000); // Transfer speed : 2000 bits per sec
 }
 
-int num = 0;
 char message[100];
 
 void loop(){
-  itoa(num, message, 10);
-  send(message);
-//  send(num);
-  Serial.println(num);
-  num++;
+  long duration, cm;
 
-  if(num > 99) {
-    num = 0;
-  }
+  digitalWrite(2, HIGH); // Trig signal on
+  delayMicroseconds(10); // 10us
+  digitalWrite(2, LOW); // Trig signal off
+
+  duration = pulseIn(3, HIGH);
+  cm = microsecondsToCentimeters(duration);
+
+  Serial.print(cm);
+  Serial.println("cm");
+
+  itoa(cm, message, 10); // important! : convert int to char
+  send(message);
   
   delay(1000);
 }
 
+// send char data
 void send (char *message){
   digitalWrite(13, true); // LED ON
   vw_send((uint8_t *)message, sizeof(message));
   vw_wait_tx(); // Wait until the whole message is gone
   digitalWrite(13, false); // LED OFF
 }
+
+// convert duration to centimeter
+long microsecondsToCentimeters(long microseconds)
+{
+  // The speed of sound is 340 m/s or 29 microseconds per centimeter.
+  // The ping travels out and back, so to find the distance of the
+  // object we take half of the distance travelled.
+  
+  return microseconds / 29 / 2;
+} 
